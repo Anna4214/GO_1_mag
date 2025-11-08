@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -128,27 +129,34 @@ func parseStats(data string) (*Stats, error) {
 }
 
 func checkThresholds(stats *Stats) {
+	// ВАЖНО: Порядок проверок критичен!
 
-	// 1. Memory - проверяем первым
+	// 1. Load Average - проверяем ПЕРВЫМ
+	if stats.LoadAverage > loadAvgThreshold {
+		fmt.Printf("Load Average is too high: %.0f\n", stats.LoadAverage)
+	}
+
+	// 2. Memory - проверяем вторым
 	if stats.TotalMemory > 0 {
 		memoryPercent := float64(stats.UsedMemory) / float64(stats.TotalMemory) * 100
 		if memoryPercent > memoryThreshold {
-			fmt.Printf("Memory usage too high: %.0f%%\n", memoryPercent)
+			// Используем math.Floor для округления вниз
+			fmt.Printf("Memory usage too high: %.0f%%\n", math.Floor(memoryPercent))
 		}
 	}
 
-	// 2. Network - проверяем вторым
+	// 3. Network - проверяем третьим
 	if stats.NetworkBandwidth > 0 {
 		networkPercent := float64(stats.NetworkUsage) / float64(stats.NetworkBandwidth) * 100
 		if networkPercent > networkThreshold {
 			availableBandwidthBytes := stats.NetworkBandwidth - stats.NetworkUsage
-			// ИСПРАВЛЕНО: делим на 1000000 (не на 1024*1024 и не умножаем на 8)
 			availableMB := float64(availableBandwidthBytes) / 1000000
-			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", availableMB)
+			// Используем math.Floor для округления вниз
+			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", math.Floor(availableMB))
 		}
 	}
 
-	// 3. Disk - проверяем третьим
+	// 4. Disk - проверяем последним
 	if stats.TotalDisk > 0 {
 		diskPercent := float64(stats.UsedDisk) / float64(stats.TotalDisk) * 100
 		if diskPercent > diskThreshold {
@@ -156,10 +164,5 @@ func checkThresholds(stats *Stats) {
 			freeDiskMB := freeDiskBytes / (1024 * 1024)
 			fmt.Printf("Free disk space is too low: %d Mb left\n", freeDiskMB)
 		}
-	}
-
-	// 4. Load Average - проверяем последним
-	if stats.LoadAverage > loadAvgThreshold {
-		fmt.Printf("Load Average is too high: %.0f\n", stats.LoadAverage)
 	}
 }
