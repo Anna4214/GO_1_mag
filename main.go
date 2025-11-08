@@ -128,12 +128,8 @@ func parseStats(data string) (*Stats, error) {
 }
 
 func checkThresholds(stats *Stats) {
-	// Load Average
-	if stats.LoadAverage > loadAvgThreshold {
-		fmt.Printf("Load Average is too high: %.0f\n", stats.LoadAverage)
-	}
 
-	// Memory
+	// 1. Memory - проверяем первым
 	if stats.TotalMemory > 0 {
 		memoryPercent := float64(stats.UsedMemory) / float64(stats.TotalMemory) * 100
 		if memoryPercent > memoryThreshold {
@@ -141,7 +137,18 @@ func checkThresholds(stats *Stats) {
 		}
 	}
 
-	// Disk
+	// 2. Network - проверяем вторым
+	if stats.NetworkBandwidth > 0 {
+		networkPercent := float64(stats.NetworkUsage) / float64(stats.NetworkBandwidth) * 100
+		if networkPercent > networkThreshold {
+			availableBandwidthBytes := stats.NetworkBandwidth - stats.NetworkUsage
+			// ИСПРАВЛЕНО: делим на 1000000 (не на 1024*1024 и не умножаем на 8)
+			availableMB := float64(availableBandwidthBytes) / 1000000
+			fmt.Printf("Network bandwidth usage high: %.0f Mbit/s available\n", availableMB)
+		}
+	}
+
+	// 3. Disk - проверяем третьим
 	if stats.TotalDisk > 0 {
 		diskPercent := float64(stats.UsedDisk) / float64(stats.TotalDisk) * 100
 		if diskPercent > diskThreshold {
@@ -151,13 +158,8 @@ func checkThresholds(stats *Stats) {
 		}
 	}
 
-	// Network
-	if stats.NetworkBandwidth > 0 {
-		networkPercent := float64(stats.NetworkUsage) / float64(stats.NetworkBandwidth) * 100
-		if networkPercent > networkThreshold {
-			availableBandwidthBytes := stats.NetworkBandwidth - stats.NetworkUsage
-			availableMbits := float64(availableBandwidthBytes) * 8 / (1024 * 1024)
-			fmt.Printf("Network bandwidth usage high: %.2f Mbit/s available\n", availableMbits)
-		}
+	// 4. Load Average - проверяем последним
+	if stats.LoadAverage > loadAvgThreshold {
+		fmt.Printf("Load Average is too high: %.0f\n", stats.LoadAverage)
 	}
 }
